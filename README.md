@@ -1,6 +1,6 @@
-# MERN Hello World with Kubernetes Horizontal Pod Autoscaler (HPA) using Kind
+# Demo with Kubernetes Horizontal Pod Autoscaler (HPA) using Kind
 
-This project demonstrates how to implement and test Horizontal Pod Autoscaler (HPA) in a Kubernetes cluster using Kind (Kubernetes IN Docker) with a simple MERN (MongoDB, Express, React, Node.js) application. The application includes CPU-intensive endpoints that can be used to test the HPA functionality.
+This project demonstrates how to implement and test Horizontal Pod Autoscaler (HPA) in a Kubernetes cluster using Kind (Kubernetes IN Docker) with a simple application. The application includes CPU-intensive endpoints that can be used to test the HPA functionality.
 
 ## Prerequisites
 
