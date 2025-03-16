@@ -1,205 +1,156 @@
-# MERN Hello World with Kubernetes Horizontal Pod Autoscaler (HPA)
+# MERN Hello World with Kubernetes Horizontal Pod Autoscaler (HPA) using Kind
 
-This project demonstrates how to implement and test Horizontal Pod Autoscaler (HPA) in a Kubernetes cluster using a simple MERN (MongoDB, Express, React, Node.js) application. The application includes CPU-intensive endpoints that can be used to test the HPA functionality.
+This project demonstrates how to implement and test Horizontal Pod Autoscaler (HPA) in a Kubernetes cluster using Kind (Kubernetes IN Docker) with a simple MERN (MongoDB, Express, React, Node.js) application. The application includes CPU-intensive endpoints that can be used to test the HPA functionality.
 
 ## Prerequisites
 
 - Docker installed and configured
-- Kubernetes cluster (Minikube, Docker Desktop, or a cloud-based Kubernetes service)
-- kubectl CLI tool installed and configured
 - Node.js and npm installed (for local development and testing)
 
-## Project Structure
+## Step-by-Step Guide for Beginners
 
-- `index.js`: Main application file with CPU-intensive endpoints
-- `Dockerfile`: Docker configuration for building the application image
-- `deployment.yaml`: Kubernetes deployment configuration
-- `mern-deployment.yaml`: Updated deployment configuration with resource limits for HPA
-- `service.yaml`: Kubernetes service configuration for exposing the application
-- `hpa.yaml`: Horizontal Pod Autoscaler configuration
-- `loadtest.js`: Load testing script using the loadtest npm package
-- `test-hpa-loadtest.sh`: Shell script for testing HPA functionality
+### 1. Create a Kind Cluster
 
-## Setup and Deployment
+You can create a Kind cluster with a single command:
 
-### 1. Install Metrics Server (required for HPA)
+```bash
+# Create a default Kind cluster
+kind create cluster --name hpa-test
+
+# Check if the cluster is running
+kubectl cluster-info
+kubectl get nodes
+```
+
+### 2. Install Metrics Server (required for HPA)
 
 The Metrics Server is required for HPA to collect CPU and memory metrics from pods:
 
 ```bash
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-```
 
-Verify that the Metrics Server is running:
+kubectl patch deployment metrics-server -n kube-system --type=json \
+  -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
 
-```bash
+kubectl wait --for=condition=Available deployment/metrics-server -n kube-system --timeout=300s
+
 kubectl get deployment metrics-server -n kube-system
 ```
 
-### 2. Build and Push the Docker Image
+### 3. Build and Load the Docker Image into Kind
 
 ```bash
 # Build the Docker image
-docker build -t <your-docker-username>/hello-world:hpa .
+docker build -t hello-world:hpa .
 
-# Push the image to Docker Hub
-docker push <your-docker-username>/hello-world:hpa
+docker tag hello-world jyotiprakashh/hello-world
+
+docker push jyotiprakashh/hello-world
 ```
 
-### 3. Deploy the Application to Kubernetes
+### 4. Deploy the Application to Kubernetes
 
 ```bash
 # Apply the deployment with resource limits
-kubectl apply -f mern-deployment.yaml
+kubectl apply -f deployment.yaml
 
 # Apply the service configuration
 kubectl apply -f service.yaml
 
 # Apply the HPA configuration
 kubectl apply -f hpa.yaml
+
 ```
 
-### 4. Verify the Deployment
+### 5. Verify the Deployment
 
 ```bash
 # Check if the pods are running
 kubectl get pods
 
-# Check if the service is properly configured
 kubectl get svc
 
-# Check the initial state of the HPA
-kubectl get hpa mern-hello-world-hpa
+kubectl get hpa demo-hpa
 ```
 
-## Testing the HPA Functionality
-
-### Method 1: Using the Interactive Test Script
-
-The project includes an interactive shell script for testing HPA functionality:
+### 6. Set Up Port Forwarding to Access the Application
 
 ```bash
-# Make the script executable
-chmod +x test-hpa-loadtest.sh
-
-# Run the script
-./test-hpa-loadtest.sh
+# Use port-forwarding
+kubectl port-forward service/demo-service 8080:80
+# Access the service at http://localhost:8080
 ```
 
-The script provides the following options:
-- Apply Kubernetes configurations
-- Check HPA status
-- Run light load test (CPU-intensive)
-- Run heavy load test (Prime numbers)
-- Run custom load test
-- Monitor HPA
-- Monitor pods
-- View detailed HPA description
-
-### Method 2: Manual Testing with Direct Commands
-
-#### 1. Monitor the HPA and Pods
+### 7. Monitor HPA and Pods
 
 Open two terminal windows to monitor the HPA and pods:
 
 ```bash
 # Terminal 1: Monitor HPA
-kubectl get hpa mern-hello-world-hpa -w
+kubectl get hpa demo-hpa -w
 
 # Terminal 2: Monitor pods
 kubectl get pods -w
 ```
 
-#### 2. Port Forward to Access the Application
+#### Run Load Tests with loadtest npm package
+
+First, install the loadtest npm package if you haven't already:
 
 ```bash
-# Port forward to the service
-kubectl port-forward service/mern-hello-world-service 3000:80
-
-# Or port forward directly to a pod
-kubectl port-forward pod/<pod-name> 3001:3000
+# Install loadtest globally
+npm install -g loadtest
 ```
 
-#### 3. Generate CPU Load
-
-You can use the following methods to generate CPU load:
-
-**a. Using curl commands:**
+Now you can run load tests against the CPU-intensive endpoints to trigger the HPA using the loadtest command-line tool:
 
 ```bash
-# Generate load with Fibonacci calculations
-for i in {1..20}; do curl "http://localhost:3001/cpu-intensive?iterations=42" & done
+# Run a light load test against the CPU-intensive endpoint
+# This sends 500 requests with 10 concurrent clients at 20 requests per second
+loadtest -c 10 -n 500 --rps 20 http://localhost:8080/cpu-intensive?iterations=42
 
-# Generate heavier load with prime number calculations
-for i in {1..10}; do curl "http://localhost:3001/heavy-load?limit=1000000" & done
+# Run a heavy load test against the heavy-load endpoint
+# This sends 100 requests with 5 concurrent clients at 10 requests per second
+loadtest -c 5 -n 100 --rps 10 http://localhost:8080/heavy-load?limit=500000
 ```
 
-**b. Using the loadtest npm package:**
+### 8. Observe HPA in Action
+
+While the load tests are running, observe the HPA and pods in your monitoring terminals:
 
 ```bash
-# Install dependencies
-npm install
+# Check HPA status
+kubectl get hpa demo-hpa
 
-# Run a load test against the CPU-intensive endpoint
-node loadtest.js --endpoint cpu-intensive --concurrency 15 --requests 1000 --rps 30 --param 45
-
-# Run a load test against the heavy-load endpoint
-node loadtest.js --endpoint heavy-load --concurrency 5 --requests 100 --rps 10 --param 500000
+# Get detailed information about the HPA
+kubectl describe hpa demo-hpa
 ```
 
-### 3. Observe the HPA in Action
+You should see:
+1. The CPU utilization increasing above 80%
+2. The HPA increasing the number of replicas
+3. New pods being created automatically
+4. The load being distributed across the pods
 
-As the CPU utilization increases above 80%, you should observe:
-1. The HPA will increase the number of replicas
-2. New pods will be created automatically
-3. The load will be distributed across the pods
+### 9. Visualize the Results
 
-You can verify this by watching the HPA status and pods in the monitoring terminals.
-
-## Available Endpoints
-
-The application provides the following endpoints:
-
-- `/`: Basic "Hello World" endpoint
-- `/cpu-intensive`: CPU-intensive endpoint that calculates Fibonacci numbers
-  - Query parameter: `iterations` (default: 40)
-- `/heavy-load`: Even more CPU-intensive endpoint that finds prime numbers
-  - Query parameter: `limit` (default: 100000)
-- `/health`: Health check endpoint that returns the pod name and timestamp
-- `/metrics`: CPU load monitoring endpoint that returns memory usage statistics
-
-## Troubleshooting
-
-### 1. HPA Shows `<unknown>` for CPU Utilization
-
-This usually indicates that the Metrics Server is not installed or not functioning properly. Verify that the Metrics Server is running:
+You can use the metrics endpoint to see the CPU load on individual pods:
 
 ```bash
-kubectl get deployment metrics-server -n kube-system
+# Get the pod name
+POD_NAME=$(kubectl get pods -l app=demo -o jsonpath='{.items[0].metadata.name}')
+
+# Port forward to the pod
+kubectl port-forward $POD_NAME 8081:3000
+
+# Access the metrics endpoint
+curl http://localhost:8081/metrics
 ```
 
-### 2. Connection Refused When Accessing the Application
+### 10. Clean Up
 
-This could be due to several reasons:
-- The service is not properly configured
-- The pods are not running correctly
-- Port forwarding is not set up correctly
-
-Try port forwarding directly to a pod to isolate the issue:
+When you're done testing, you can clean up your Kind cluster:
 
 ```bash
-kubectl port-forward pod/<pod-name> 3001:3000
-```
-
-### 3. Pods Not Scaling Despite High CPU Load
-
-- Check if the HPA is configured correctly
-- Verify that the pods have resource requests and limits set
-- Ensure that the Metrics Server is collecting data properly
-- The HPA may need some time to collect enough metrics before scaling
-
-## Additional Resources
-
-- [Kubernetes HPA Documentation](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
-- [Metrics Server GitHub Repository](https://github.com/kubernetes-sigs/metrics-server)
-- [Kubernetes Resource Management](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+# Delete the Kind cluster
+kind delete cluster --name hpa-test

@@ -1,12 +1,12 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: mern-hello-world-hpa
+  name: demo-hpa
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: mern-hello-world-hpa
+    name: demo-hpa
   minReplicas: 2
   maxReplicas: 10
   metrics:

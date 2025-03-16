@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo "HPA Load Testing Script"
-echo "======================="
+echo "HPA Load Testing Script for Kind Cluster"
+echo "========================================"
 
 # Check if loadtest and yargs are installed
 if ! npm list -g loadtest &> /dev/null; then
@@ -37,7 +37,15 @@ function run_loadtest() {
   echo "Running loadtest against /$endpoint endpoint"
   echo "Concurrency: $concurrency, Requests: $requests, RPS: $rps, Param: $param"
   
-  node loadtest.js --endpoint $endpoint --concurrency $concurrency --requests $requests --rps $rps --param $param
+  # Get the NodePort of the service
+  local NODE_PORT=$(kubectl get svc mern-hello-world-service -o jsonpath='{.spec.ports[0].nodePort}')
+  
+  # Get the IP of the Kind node
+  local KIND_IP="localhost"
+  
+  echo "Service is available at: http://$KIND_IP:$NODE_PORT"
+  
+  node loadtest.js --endpoint $endpoint --concurrency $concurrency --requests $requests --rps $rps --param $param --host $KIND_IP --port $NODE_PORT
 }
 
 # Function to apply Kubernetes configurations
@@ -54,6 +62,25 @@ function apply_k8s_configs() {
   kubectl get hpa mern-hello-world-hpa
 }
 
+# Function to display Kind cluster info
+function kind_cluster_info() {
+  echo "Kind Cluster Information:"
+  echo "========================="
+  echo "Cluster Nodes:"
+  kubectl get nodes
+  echo -e "\nCluster Pods:"
+  kubectl get pods -A
+  echo -e "\nCluster Services:"
+  kubectl get svc -A
+}
+
+# Function to port-forward the service
+function port_forward_service() {
+  local local_port=$1
+  echo "Port forwarding service to localhost:$local_port..."
+  kubectl port-forward service/mern-hello-world-service $local_port:80
+}
+
 # Main menu
 PS3="Select an option: "
 options=(
@@ -65,6 +92,8 @@ options=(
   "Monitor HPA" 
   "Monitor Pods"
   "View Detailed HPA Description"
+  "View Kind Cluster Info"
+  "Port Forward Service"
   "Exit"
 )
 
@@ -112,6 +141,14 @@ do
       ;;
     "View Detailed HPA Description")
       kubectl describe hpa mern-hello-world-hpa
+      ;;
+    "View Kind Cluster Info")
+      kind_cluster_info
+      ;;
+    "Port Forward Service")
+      read -p "Enter local port (default: 8080): " local_port
+      local_port=${local_port:-8080}
+      port_forward_service $local_port
       ;;
     "Exit")
       echo "Exiting..."

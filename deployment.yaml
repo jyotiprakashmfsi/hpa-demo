@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: hello-world
+  name: demo-hpa
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: mern-hello-world
+      app: demo
   template:
     metadata:
       labels:
-        app: mern-hello-world
+        app: demo
     spec:
       containers:
-        - name: hello-world
-          image: jyotiprakashh/hello-world
+        - name: demo
+          image: jyotiprakashh/hello-world:hpa
           ports:
             - containerPort: 3000
           resources:

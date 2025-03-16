@@ -1,12 +1,10 @@
 const express = require('express');
 const app = express();
 
-// Basic endpoint
 app.get('/', (req, res) => {
     res.send('Hello World!');
 });
 
-// CPU-intensive endpoint - Fibonacci calculation
 app.get('/cpu-intensive', (req, res) => {
     const iterations = req.query.iterations || 40;
     const result = fibonacci(parseInt(iterations));
@@ -17,7 +15,6 @@ app.get('/cpu-intensive', (req, res) => {
     });
 });
 
-// Even more CPU-intensive endpoint - Prime number calculation
 app.get('/heavy-load', (req, res) => {
     const limit = req.query.limit || 100000;
     const primes = findPrimes(parseInt(limit));
@@ -28,7 +25,6 @@ app.get('/heavy-load', (req, res) => {
     });
 });
 
-// Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'ok',
@@ -37,7 +33,6 @@ app.get('/health', (req, res) => {
     });
 });
 
-// CPU load monitoring endpoint
 app.get('/metrics', (req, res) => {
     const memoryUsage = process.memoryUsage();
     res.json({
@@ -51,13 +46,11 @@ app.get('/metrics', (req, res) => {
     });
 });
 
-// Recursive Fibonacci function (intentionally inefficient for CPU load)
 function fibonacci(n) {
     if (n <= 1) return n;
     return fibonacci(n - 1) + fibonacci(n - 2);
 }
 
-// Find prime numbers up to a limit (CPU intensive)
 function findPrimes(limit) {
     const primes = [];
     for (let num = 2; num <= limit; num++) {
